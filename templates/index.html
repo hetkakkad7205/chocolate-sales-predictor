@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoAnalytics</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>🍫 ChocoAnalytics</h1>
+        <p>Understand your sales. Predict your growth.</p>
+        <nav>
+            <a href="/">Dashboard</a>
+            <a href="/analysis">Sales Analysis</a>
+            <a href="/prediction">Predict Sales</a>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Sales Dashboard</h2>
+        <p>Explore your historical chocolate sales data.</p>
+
+        <section class="stats">
+            <div class="stat-card">
+                <h3>Total Sales</h3>
+                <p>{{ "%.2f"|format(total_sales) }}</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Boxes Shipped</h3>
+                <p>{{ total_boxes }}</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Top Product</h3>
+                <p>{{ best_product }}</p>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Explore your data</h2>
+            <p>Compare products, countries and monthly sales trends.</p>
+            <a class="button" href="/analysis">View Analysis</a>
+            <a class="button" href="/prediction">Predict Sales</a>
+        </section>
+    </main>
+</body>
+</html>

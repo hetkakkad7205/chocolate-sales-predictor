@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chocolate Sales Predictor</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Chocolate Sales Predictor</h1>
+        <nav>
+            <a href="/">Dashboard</a>
+            <a href="/analysis">Sales Analysis</a>
+            <a href="/prediction">Predict Sales</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>Predict Sales Amount</h2>
+
+            <form method="POST">
+                <label for="country">Country</label>
+                <select id="country" name="country" required>
+                    {% for country in countries %}
+                    <option value="{{ country }}">{{ country }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="product">Product</label>
+                <select id="product" name="product" required>
+                    {% for product in products %}
+                    <option value="{{ product }}">{{ product }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="boxes_shipped">Boxes Shipped</label>
+                <input
+                    id="boxes_shipped"
+                    name="boxes_shipped"
+                    type="number"
+                    min="0"
+                    step="any"
+                    required
+                >
+
+                <label for="date">Prediction Date</label>
+                <input
+                    id="date"
+                    name="date"
+                    type="date"
+                    required
+                >
+
+                <button type="submit">Predict Sales</button>
+            </form>
+
+            {% if result is not none %}
+            <div class="result">
+                <h3>Estimated Sales Amount</h3>
+                <p class="score">{{ "%.2f"|format(result) }}</p>
+                <small>This is an estimate generated from historical data.</small>
+            </div>
+            {% endif %}
+
+            {% if error %}
+            <p class="error">{{ error }}</p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>

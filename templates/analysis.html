@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Analysis</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Sales Analysis</h1>
+        <nav>
+            <a href="/">Dashboard</a>
+            <a href="/analysis">Sales Analysis</a>
+            <a href="/prediction">Predict Sales</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>Sales by Country</h2>
+            <canvas id="countryChart"></canvas>
+        </section>
+
+        <section class="panel">
+            <h2>Sales by Product</h2>
+            <canvas id="productChart"></canvas>
+        </section>
+
+        <section class="panel">
+            <h2>Monthly Sales Trend</h2>
+            <canvas id="monthlyChart"></canvas>
+        </section>
+    </main>
+
+    
+<script>
+   
+const countries = {{ countries | tojson | safe }};
+const countryValues = {{ country_values | tojson | safe }};
+
+const products = {{ products | tojson | safe }};
+const productValues = {{ product_values | tojson | safe }};
+
+const months = {{ months | tojson | safe }};
+const monthlyValues = {{ monthly_values | tojson | safe  }};
+
+
+    function makeChart(id, type, labels, values, title) {
+        new Chart(document.getElementById(id), {
+            type: type,
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: title,
+                    data: values,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: type !== "bar"
+                    }
+                }
+            }
+        });
+    }
+
+    makeChart("countryChart", "bar",
+        countries, countryValues, "Sales by Country");
+
+    makeChart("productChart", "bar",
+        products, productValues, "Sales by Product");
+
+    makeChart("monthlyChart", "line",
+        months, monthlyValues, "Monthly Sales");
+</script>
+</body>
+</html>
+
