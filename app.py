@@ -1,5 +1,5 @@
 
-from flask import Flask, render_template, request
+import streamlit as st
 import pandas as pd
 import numpy as np
 
@@ -7,47 +7,74 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error
-
-app = Flask(__name__)
-
-# Load dataset
-df = pd.read_csv("Cleaned_Chocolate_Sales.csv")
 
 
-# Standardize column names
-df.columns = (
-    df.columns.str.strip()
-    .str.lower()
-    .str.replace(" ", "_", regex=False)
+# ---------------- PAGE CONFIGURATION ----------------
+st.set_page_config(
+    page_title="Chocolate Sales Predictor",
+    page_icon="🍫",
+    layout="wide"
 )
 
-# Check required columns
-required = ["country", "product", "date", "amount", "boxes_shipped"]
 
-if not set(required).issubset(df.columns):
-    raise ValueError(
-        f"CSV must contain these columns: {required}"
+# ---------------- LOAD AND CLEAN DATA ----------------
+@st.cache_data
+def load_data():
+    df = pd.read_csv("Cleaned_Chocolate_Sales.csv")
+
+    df.columns = (
+        df.columns.str.strip()
+        .str.lower()
+        .str.replace(" ", "_", regex=False)
     )
 
-# Clean data
-df["date"] = pd.to_datetime(df["date"], errors="coerce")
-df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
-df["boxes_shipped"] = pd.to_numeric(
-    df["boxes_shipped"], errors="coerce"
-)
+    required = [
+        "country", "product", "date",
+        "amount", "boxes_shipped"
+    ]
 
-df = df.dropna(subset=required).copy()
-df = df[
-    (df["amount"] >= 0) &
-    (df["boxes_shipped"] >= 0)
-].copy()
+    if not set(required).issubset(df.columns):
+        raise ValueError(
+            f"CSV must contain these columns: {required}"
+        )
 
-# Extract date features
-df["year"] = df["date"].dt.year
-df["month"] = df["date"].dt.month
-df["day"] = df["date"].dt.day
+    df["date"] = pd.to_datetime(
+        df["date"], errors="coerce"
+    )
+    df["amount"] = pd.to_numeric(
+        df["amount"], errors="coerce"
+    )
+    df["boxes_shipped"] = pd.to_numeric(
+        df["boxes_shipped"], errors="coerce"
+    )
 
+    df = df.dropna(subset=required).copy()
+
+    df = df[
+        (df["amount"] >= 0)
+        & (df["boxes_shipped"] >= 0)
+    ].copy()
+
+    df["year"] = df["date"].dt.year
+    df["month"] = df["date"].dt.month
+    df["day"] = df["date"].dt.day
+
+    return df
+
+
+try:
+    df = load_data()
+
+    if df.empty:
+        st.error("No valid records found in the dataset.")
+        st.stop()
+
+except Exception as e:
+    st.error(f"Could not load the dataset: {e}")
+    st.stop()
+
+
+# ---------------- TRAIN MODEL ----------------
 features = [
     "country", "product", "boxes_shipped",
     "year", "month", "day"
@@ -56,7 +83,6 @@ features = [
 X = df[features]
 y = df["amount"]
 
-# Preprocess text categories and train regression model
 preprocessor = ColumnTransformer(
     transformers=[
         (
@@ -79,9 +105,11 @@ model = Pipeline([
 
 model.fit(X, y)
 
-# Dashboard statistics
-total_sales = round(df["amount"].sum(), 2)
-total_boxes = int(df["boxes_shipped"].sum())
+
+# ---------------- DASHBOARD STATISTICS ----------------
+total_sales = df["amount"].sum()
+total_boxes = df["boxes_shipped"].sum()
+
 best_product = (
     df.groupby("product")["amount"]
     .sum()
@@ -101,107 +129,125 @@ product_sales = (
 )
 
 monthly_sales = (
-    df.assign(month_label=df["date"].dt.to_period("M").astype(str))
+    df.assign(
+        month_label=df["date"].dt.to_period("M").astype(str)
+    )
     .groupby("month_label")["amount"]
     .sum()
     .sort_index()
 )
 
-@app.route("/")
-def home():
-    return render_template(
-        "index.html",
-        total_sales=total_sales,
-        total_boxes=total_boxes,
-        best_product=best_product
+
+# ---------------- SIDEBAR NAVIGATION ----------------
+st.sidebar.title("🍫 Chocolate Sales")
+page = st.sidebar.radio(
+    "Navigation",
+    ["Dashboard", "Sales Analysis", "Sales Prediction", "Dataset"]
+)
+
+
+# ---------------- DASHBOARD ----------------
+if page == "Dashboard":
+    st.title("🍫 Chocolate Sales Predictor")
+    st.write(
+        "Analyze chocolate sales performance "
+        "and predict sales using Machine Learning."
     )
 
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Total Sales", f"{total_sales:,.2f}")
+    col2.metric("Total Boxes Shipped", f"{total_boxes:,.0f}")
+    col3.metric("Best-Selling Product", str(best_product))
+
+    st.subheader("Monthly Sales Trend")
+    st.line_chart(monthly_sales)
+
+    st.subheader("Top Products by Sales")
+    st.bar_chart(product_sales.head(10))
 
 
+# ---------------- SALES ANALYSIS ----------------
+elif page == "Sales Analysis":
+    st.title("📊 Sales Analysis")
 
-@app.route("/analysis")
-def analysis():
-    # 1. Sales by country
-    country_sales = (
+    st.subheader("Sales by Country")
+    st.bar_chart(country_sales)
+
+    st.subheader("Sales by Product")
+    st.bar_chart(product_sales)
+
+    st.subheader("Monthly Sales Trend")
+    st.line_chart(monthly_sales)
+
+    st.subheader("Sales Summary")
+    st.dataframe(
         df.groupby("country")["amount"]
-        .sum()
-        .sort_values(ascending=False)
-    )
-
-    # 2. Sales by product
-    product_sales = (
-        df.groupby("product")["amount"]
-        .sum()
-        .sort_values(ascending=False)
-    )
-
-    # 3. Monthly sales trend
-    monthly_sales = (
-        df.assign(
-            month_label=df["date"].dt.to_period("M").astype(str)
-        )
-        .groupby("month_label")["amount"]
-        .sum()
-        .sort_index()
-    )
-
-    return render_template(
-        "analysis.html",
-        countries=country_sales.index.tolist(),
-        country_values=country_sales.values.tolist(),
-        products=product_sales.index.tolist(),
-        product_values=product_sales.values.tolist(),
-        months=monthly_sales.index.tolist(),
-        monthly_values=monthly_sales.values.tolist()
+        .agg(["sum", "mean", "count"])
+        .rename(columns={
+            "sum": "Total Sales",
+            "mean": "Average Sales",
+            "count": "Records"
+        }),
+        use_container_width=True
     )
 
 
+# ---------------- SALES PREDICTION ----------------
+elif page == "Sales Prediction":
+    st.title("🔮 Predict Chocolate Sales")
 
-@app.route("/prediction", methods=["GET", "POST"])
-def prediction():
-    result = None
-    error = None
+    st.write(
+        "Select a country, product, date and boxes shipped "
+        "to estimate the sales amount."
+    )
 
     countries = sorted(df["country"].unique().tolist())
     products = sorted(df["product"].unique().tolist())
 
-    if request.method == "POST":
-        try:
-            country = request.form["country"]
-            product = request.form["product"]
-            boxes = float(request.form["boxes_shipped"])
-            date = pd.to_datetime(request.form["date"], errors="raise")
+    with st.form("prediction_form"):
+        country = st.selectbox("Select Country", countries)
+        product = st.selectbox("Select Product", products)
 
-            if country not in countries or product not in products:
-                raise ValueError("Select a valid country and product.")
+        boxes = st.number_input(
+            "Boxes Shipped",
+            min_value=0.0,
+            value=100.0,
+            step=1.0
+        )
 
-            if not np.isfinite(boxes) or boxes < 0:
-                raise ValueError("Boxes shipped must be a non-negative number.")
+        selected_date = st.date_input("Select Date")
 
-            input_data = pd.DataFrame([{
-                "country": country,
-                "product": product,
-                "boxes_shipped": boxes,
-                "year": date.year,
-                "month": date.month,
-                "day": date.day
-            }])
+        submitted = st.form_submit_button("Predict Sales")
 
-            result = round(
-                max(0, float(model.predict(input_data)[0])), 2
-            )
+    if submitted:
+        input_data = pd.DataFrame([{
+            "country": country,
+            "product": product,
+            "boxes_shipped": boxes,
+            "year": selected_date.year,
+            "month": selected_date.month,
+            "day": selected_date.day
+        }])
 
-        except (ValueError, TypeError):
-            error = "Please check your date, product, country and box quantity."
+        prediction = float(model.predict(input_data)[0])
+        prediction = max(0, prediction)
 
-    return render_template(
-        "prediction.html",
-        countries=countries,
-        products=products,
-        result=result,
-        error=error
-    )
+        st.success(f"Predicted Sales Amount: {prediction:,.2f}")
+
+        st.caption(
+            "This is a model estimate based on historical data, "
+            "not a guaranteed future sales amount."
+        )
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# ---------------- DATASET ----------------
+elif page == "Dataset":
+    st.title("📁 Chocolate Sales Dataset")
+
+    st.write(f"Total valid records: {len(df)}")
+
+    st.dataframe(df, use_container_width=True)
+
+    st.subheader("Descriptive Statistics")
+    st.dataframe(df.describe(), use_container_width=True)
